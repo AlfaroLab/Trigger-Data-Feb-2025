@@ -1,0 +1,429 @@
+---
+title: "NEW_graphs_SICB"
+output: html_document
+date: "2025-01-05"
+---
+```{r}
+#clear workspace
+rm(list=ls()) #learn how this line works
+
+# Read in data (make sure you are in the correct working directory)
+datapath="~/Downloads/HYPERSPEC_FISH_2024/TRIGGER_2024/pablo_EXCLUDING_live_data_CSV.csv"
+working_directory="/Users/rosamariorduna/Downloads/HYPERSPEC_FISH_2024"
+setwd(working_directory)
+df = read.csv(datapath, skip = 4)
+
+# Clean up the column names
+# Extracting numbers from column names with X and number
+new_names <- gsub("X([0-9]+)", "\\1", names(df))  
+names(df) <- new_names
+
+# Get only spectra and first column
+spec_dat = df[,c(1,which(colnames(df)==350):which(colnames(df) == 1002))]
+
+# Remove NA
+spec_dat = na.omit(spec_dat)
+```
+
+```{r}
+# Clean up ID's (Removes anything after "_")
+# (note, strsplit is a function from the tidyverse package)
+ids = sapply(strsplit(spec_dat$name, "_"), function(x) x[1])
+
+# Remove ID's and transpose matrix for pavo format 
+spec_pavo = t(spec_dat[,-c(1)])
+
+# Rename Columns
+colnames(spec_pavo) = ids
+
+##save the dataframe
+write_csv2(spec_pavo,"cleaned_data.csv")
+
+```
+
+###   BLACK PATCHES   ###
+```{r}
+
+## read in cleaned data
+dd <-read_csv2("cleaned_data.csv")
+
+##rewrite to use dd (cleaned data) and not spec pavo)
+
+spec_pavo[1:6,2:ncol(spec_pavo)] <- 0
+#spec_pavo$wl # To check wavelength
+
+# Add wavelength column for pavo
+wl = as.numeric(rownames(spec_pavo))
+spec_pavo = data.frame(wl, spec_pavo)
+colnames(spec_pavo) = c("wl", ids)
+#spec_pavo = spec_pavo[,2:ncol(spec_pavo)]
+
+# Convert to an rspec object
+spec_format = as.rspec(spec_pavo, lim = c(300, 1000), exceed.range = T)
+spec_format_for_color = as.rspec(spec_pavo, lim = c(300, 700), exceed.range = T)
+
+# Fix negative values
+spec_format = procspec(spec_format, fixneg = "zero")
+spec_format[, 2:ncol(spec_format)] <- spec_format[, 2:ncol(spec_format)] * 100
+
+# Fix negative values for color
+spec_format_for_color = procspec(spec_format_for_color, fixneg = "zero")
+spec_format_for_color[, 2:ncol(spec_format_for_color)] <- spec_format_for_color[, 2:ncol(spec_format_for_color)] * 100
+
+
+##get black patch data only
+spec_format_for_color %>% select(c(1,2,5,6)) -> black_patch
+#fix names
+
+black_patch <- black_patch %>%
+  rename(
+    wl = wl, 
+    `0` = pablo, 
+    `2wk` = `../Pablo`, 
+    `86yr` = `../LACM`
+  )
+
+names(black_patch)
+
+line_types <- 1:5 # Assuming 5 groups, one line type per group (adjust if needed)
+
+```
+#
+#T=0 BLACK 
+```{r}
+#Color_Patches into a vector for legend
+Color_Patches <- c("T=0", "T=2weeks", "T=86years")
+
+```
+
+
+
+# plot the spectrogram for three timepoints
+
+```{r}
+
+# Reshape data to long format
+long_data <- black_patch %>%
+  pivot_longer(cols = -wl, names_to = "time_series", values_to = "reflectance") %>%
+  filter(wl >= 400 & wl <= 700)  # Limit to wavelengths between 400 and 700
+
+# Plot with combined legend for thickness and transparency
+ggplot(long_data, aes(x = wl, y = reflectance, group = time_series)) +
+  geom_line(aes(size = time_series, alpha = time_series), color = "black") +
+  scale_size_manual(
+    values = c(1, 1.5, 2),  # Vary line thickness
+    guide = guide_legend(title = "Time Series")  # Single legend for size
+  ) +
+  scale_alpha_manual(
+    values = c(0.6, 0.8, 1),  # Vary transparency
+    guide = guide_legend(title = "Time Series")  # Single legend for alpha
+  ) +
+  labs(
+    title = "Reflectance Curves for Time Series (400-700 nm)",
+    x = "Wavelength (nm)",
+    y = "Reflectance"
+  ) +
+  theme_minimal() +
+  guides(
+    size = guide_legend(override.aes = list(alpha = c(0.6, 0.8, 1))),  # Match transparency in legend
+    alpha = "none"  # Remove duplicate alpha legend
+  )
+
+
+
+```
+
+
+
+
+###   BLACK PATCHES   ###
+```{r}
+
+## read in cleaned data
+dd <-read_csv2("cleaned_data.csv")
+
+##rewrite to use dd (cleaned data) and not spec pavo)
+
+spec_pavo[1:6,2:ncol(spec_pavo)] <- 0
+#spec_pavo$wl # To check wavelength
+
+# Add wavelength column for pavo
+wl = as.numeric(rownames(spec_pavo))
+spec_pavo = data.frame(wl, spec_pavo)
+colnames(spec_pavo) = c("wl", ids)
+#spec_pavo = spec_pavo[,2:ncol(spec_pavo)]
+
+# Convert to an rspec object
+spec_format = as.rspec(spec_pavo, lim = c(300, 1000), exceed.range = T)
+spec_format_for_color = as.rspec(spec_pavo, lim = c(300, 700), exceed.range = T)
+
+# Fix negative values
+spec_format = procspec(spec_format, fixneg = "zero")
+spec_format[, 2:ncol(spec_format)] <- spec_format[, 2:ncol(spec_format)] * 100
+
+# Fix negative values for color
+spec_format_for_color = procspec(spec_format_for_color, fixneg = "zero")
+spec_format_for_color[, 2:ncol(spec_format_for_color)] <- spec_format_for_color[, 2:ncol(spec_format_for_color)] * 100
+
+
+##get black patch data only
+spec_format_for_color %>% select(c(1,2,5,6)) -> black_patch
+#fix names
+
+black_patch <- black_patch %>%
+  rename(
+    wl = wl, 
+    `0` = pablo, 
+    `2wk` = `../Pablo`, 
+    `86yr` = `../LACM`
+  )
+
+names(black_patch)
+
+line_types <- 1:5 # Assuming 5 groups, one line type per group (adjust if needed)
+
+```
+#
+#T=0 BLACK 
+```{r}
+#Color_Patches into a vector for legend
+Color_Patches <- c("T=0", "T=2weeks", "T=86years")
+
+```
+
+
+
+# plot the spectrogram for three timepoints
+
+```{r}
+
+# Reshape data to long format
+long_data <- black_patch %>%
+  pivot_longer(cols = -wl, names_to = "time_series", values_to = "reflectance") %>%
+  filter(wl >= 300 & wl <= 700)  # Limit to wavelengths between 400 and 700
+#
+day_0 <- seq(1, 1201, 3)
+day_14 <- seq(2, 1202, 3)
+year_86 <- seq(3, 1203, 3)
+long_data_rspec <- long_data[day_0, c(1,3)]
+colnames(long_data_rspec) <- c("wl", "reflectance")
+long_data_rspec <- as.rspec(long_data_rspec)
+
+plot(long_data_rspec, xlim = c(400,700), ylim = c(0,30), , col = "white", main = "Black Patch")
+abline(v = 400, col = "lightgray")
+abline(v = 450, col = "lightgray")
+abline(v = 500, col = "lightgray")
+abline(v = 550, col = "lightgray")
+abline(v = 600, col = "lightgray")
+abline(v = 650, col = "lightgray")
+abline(v = 700, col = "lightgray")
+abline(h = 5, col = "lightgray")
+abline(h = 10, col = "lightgray")
+abline(h = 15, col = "lightgray")
+abline(h = 20, col = "lightgray")
+abline(h = 25, col = "lightgray")
+abline(h = 30, col = "lightgray")
+lines(x = 400:700, y = unlist(long_data[c(day_0[101:401]),3]), col = "black", lwd=2)
+lines(x = 400:700, y = unlist(long_data[c(day_14[101:401]),3]), col = "blue", lwd=2)
+lines(x = 400:700, y = unlist(long_data[c(year_86[101:401]),3]), col = "red", lwd=8)
+legend(x = "topleft", legend = c("Day 0", "Week 2", "Year 86"), fill = c("black","blue","red"), cex = 0.90)
+
+
+
+```
+
+
+### Blue Patch
+
+```{r}
+
+
+blue_patch <- dd[,c(1, 7:11)]
+blue_patch <- as.rspec(blue_patch)
+blue_patch <- blue_patch[1:351,]
+blue_patch <- procspec(blue_patch, fixneg = "zero")
+
+blue_patch[,2:6] <- blue_patch[,2:6] * 100
+
+plot(blue_patch[,c(1,2)], xlim = c(400,700), ylim = c(0,45), col = "white", main = "Blue Patch")
+abline(v = 400, col = "lightgray")
+abline(v = 450, col = "lightgray")
+abline(v = 500, col = "lightgray")
+abline(v = 550, col = "lightgray")
+abline(v = 600, col = "lightgray")
+abline(v = 650, col = "lightgray")
+abline(v = 700, col = "lightgray")
+abline(h = 10, col = "lightgray")
+abline(h = 20, col = "lightgray")
+abline(h = 30, col = "lightgray")
+abline(h = 40, col = "lightgray")
+lines(x = 350:700, c(blue_patch[,2]), col = "black", lwd=2)
+lines(x = 350:700, c(blue_patch[,4]), col = "blue", lwd=2)
+lines(x = 350:700, c(blue_patch[,6]), col = "red", lwd=8)
+legend(x = "topleft", legend = c("Day 0", "Week 2", "Year 86"), fill = c("black","blue","red"), cex = 0.90)
+
+
+
+
+```
+
+
+### Orange
+```{r}
+
+
+
+orange_patch <- dd[,c(1, 12:16)]
+orange_patch <- as.rspec(orange_patch)
+orange_patch <- orange_patch[1:351,]
+orange_patch <- procspec(orange_patch, fixneg = "zero")
+
+orange_patch[,2:6] <- orange_patch[,2:6] * 100
+
+plot(orange_patch[,c(1,2)], xlim = c(400,700), ylim = c(0,85), col = "white", main = "Orange Patch")
+abline(v = 400, col = "lightgray")
+abline(v = 450, col = "lightgray")
+abline(v = 500, col = "lightgray")
+abline(v = 550, col = "lightgray")
+abline(v = 600, col = "lightgray")
+abline(v = 650, col = "lightgray")
+abline(v = 700, col = "lightgray")
+abline(h = 10, col = "lightgray")
+abline(h = 20, col = "lightgray")
+abline(h = 30, col = "lightgray")
+abline(h = 40, col = "lightgray")
+abline(h = 50, col = "lightgray")
+abline(h = 60, col = "lightgray")
+abline(h = 70, col = "lightgray")
+abline(h = 80, col = "lightgray")
+abline(h = 90, col = "lightgray")
+abline(h = 100, col = "lightgray")
+lines(x = 350:700, c(orange_patch[,2]), col = "black", lwd=2)
+lines(x = 350:700, c(orange_patch[,4]), col = "blue", lwd=2)
+lines(x = 350:700, c(orange_patch[,6]), col = "red", lwd=8)
+legend(x = "topleft", legend = c("Day 0", "Week 2", "Year 86"), fill = c("black","blue","red"), cex = 0.90)
+
+```
+
+
+
+### White
+```{r}
+
+
+
+white_patch <- dd[,c(1, 17:21)]
+white_patch <- as.rspec(white_patch)
+white_patch <- white_patch[1:351,]
+white_patch <- procspec(white_patch, fixneg = "zero")
+
+white_patch[,2:6] <- white_patch[,2:6] * 100
+
+plot(white_patch[,c(1,2)], xlim = c(400,700), ylim = c(0,100), col = "white", main = "White Patch")
+abline(v = 400, col = "lightgray")
+abline(v = 450, col = "lightgray")
+abline(v = 500, col = "lightgray")
+abline(v = 550, col = "lightgray")
+abline(v = 600, col = "lightgray")
+abline(v = 650, col = "lightgray")
+abline(v = 700, col = "lightgray")
+abline(h = 10, col = "lightgray")
+abline(h = 20, col = "lightgray")
+abline(h = 30, col = "lightgray")
+abline(h = 40, col = "lightgray")
+abline(h = 50, col = "lightgray")
+abline(h = 60, col = "lightgray")
+abline(h = 70, col = "lightgray")
+abline(h = 80, col = "lightgray")
+abline(h = 90, col = "lightgray")
+abline(h = 100, col = "lightgray")
+lines(x = 350:700, c(white_patch[,2]), col = "black", lwd=2)
+lines(x = 350:700, c(white_patch[,4]), col = "blue", lwd=2)
+lines(x = 350:700, c(white_patch[,6]), col = "red", lwd=8)
+legend(x = "topleft", legend = c("Day 0", "Week 2", "Year 86"), fill = c("black","blue","red"), cex = 0.90)
+
+```
+
+
+
+
+### all color patches for t=0
+```{r}
+
+
+
+all_0_patch <- dd[,c(1, 2, 7, 12, 17)]
+all_0_patch <- as.rspec(all_0_patch)
+all_0_patch <- all_0_patch[1:351,]
+all_0_patch <- procspec(all_0_patch, fixneg = "zero")
+
+all_0_patch[,2:5] <- all_0_patch[,2:5] * 100
+
+plot(all_0_patch[,c(1,2)], xlim = c(400,700), ylim = c(0,100), col = "white", main = "T=0 Color Patches")
+abline(v = 400, col = "lightgray")
+abline(v = 450, col = "lightgray")
+abline(v = 500, col = "lightgray")
+abline(v = 550, col = "lightgray")
+abline(v = 600, col = "lightgray")
+abline(v = 650, col = "lightgray")
+abline(v = 700, col = "lightgray")
+abline(h = 10, col = "lightgray")
+abline(h = 20, col = "lightgray")
+abline(h = 30, col = "lightgray")
+abline(h = 40, col = "lightgray")
+abline(h = 50, col = "lightgray")
+abline(h = 60, col = "lightgray")
+abline(h = 70, col = "lightgray")
+abline(h = 80, col = "lightgray")
+abline(h = 90, col = "lightgray")
+abline(h = 100, col = "lightgray")
+lines(x = 350:700, c(all_0_patch[,2]), col = "black", lwd=4)
+lines(x = 350:700, c(all_0_patch[,3]), col = "blue", lwd=4)
+lines(x = 350:700, c(all_0_patch[,4]), col = "orange", lwd=4)
+lines(x = 350:700, c(all_0_patch[,5]), col = "darkgray", lwd=4)
+legend(x = "topleft", legend = c("Black", "Blue", "Orange", "White"), fill = c("black","blue","orange", "darkgray"), cex = 0.90)
+
+```
+
+
+
+
+### all color patches for t=86
+```{r}
+
+
+
+all_86_patch <- dd[,c(1, 6, 11, 16, 21)]
+all_86_patch <- as.rspec(all_86_patch)
+all_86_patch <- all_86_patch[1:351,]
+all_86_patch <- procspec(all_86_patch, fixneg = "zero")
+
+all_86_patch[,2:5] <- all_86_patch[,2:5] * 100
+
+plot(all_86_patch[,c(1,2)], xlim = c(400,700), ylim = c(0,100), col = "white", main = "T=86 Years Color Patches")
+abline(v = 400, col = "lightgray")
+abline(v = 450, col = "lightgray")
+abline(v = 500, col = "lightgray")
+abline(v = 550, col = "lightgray")
+abline(v = 600, col = "lightgray")
+abline(v = 650, col = "lightgray")
+abline(v = 700, col = "lightgray")
+abline(h = 10, col = "lightgray")
+abline(h = 20, col = "lightgray")
+abline(h = 30, col = "lightgray")
+abline(h = 40, col = "lightgray")
+abline(h = 50, col = "lightgray")
+abline(h = 60, col = "lightgray")
+abline(h = 70, col = "lightgray")
+abline(h = 80, col = "lightgray")
+abline(h = 90, col = "lightgray")
+abline(h = 100, col = "lightgray")
+lines(x = 350:700, c(all_86_patch[,2]), col = "black", lwd=4)
+lines(x = 350:700, c(all_86_patch[,3]), col = "blue", lwd=4)
+lines(x = 350:700, c(all_86_patch[,4]), col = "orange", lwd=4)
+lines(x = 350:700, c(all_86_patch[,5]), col = "darkgray", lwd=4)
+legend(x = "topleft", legend = c("Black", "Blue", "Orange", "White"), fill = c("black","blue","orange", "darkgray"), cex = 0.90)
+
+```
+
+
