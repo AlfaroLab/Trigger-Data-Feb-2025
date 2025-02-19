@@ -1,0 +1,100 @@
+---
+title: "Untitled"
+output: html_document
+date: "2025-02-19"
+---
+```{r}
+# Load necessary libraries
+library(ggplot2)
+#install.packages("here")
+library(here)
+here()
+```
+
+```{r}
+# Reading in the cleaned CSV file
+df_02 <- read.csv("pablo_reference_spec_against_LACM.csv", stringsAsFactors = FALSE)
+
+# Defining the reference spectral data (first 4 columns)
+ref_pablo_spec <- df_02[, 2:5]  # First 4 columns contain reference spectra
+
+# Extract wavelength column
+wavelengths <- df_02[, 1]  # Assuming the first column is wavelength
+
+# Extract only spectral data (excluding reference columns)
+spectral_data <- df_02[, -c(2:5)]  # Exclude the first 4 columns
+
+# Calculating spectral angle between two spectra (x and y)
+calc_spectral_angle <- function(x, y) {
+  sum_xy <- sum(x * y)
+  sum_x2 <- sum(x^2)
+  sum_y2 <- sum(y^2)
+  alfa <- acos(sum_xy / sqrt(sum_x2 * sum_y2))
+  return(alfa)  # Returning angle in radians
+}
+
+# Creating first plot
+plot(wavelengths, spectral_data[,1],  # Plot first measurement
+     type="l",
+     ylim=c(0,1),        
+     xlab="Wavelength (nm)", 
+     ylab="Reflectance (%)",
+     main="Patch Measurements and Means")
+
+# Defining colors and patch names
+colors <- c("black", "gray", "orange", "blue")
+patches <- c("black", "white", "orange", "blue")
+
+# Plotting all individual measurements per patch
+for(patch in patches) {
+  patch_cols <- grep(patch, names(spectral_data))  # Find relevant columns
+  for(col in patch_cols) {
+    lines(wavelengths, spectral_data[, col], 
+          col=colors[which(patches == patch)])
+  }
+}
+
+# Calculating & plotting mean spectra
+means <- data.frame(wavelength = wavelengths)  # Store wavelength info
+for(patch in patches) {
+  patch_cols <- grep(patch, names(spectral_data))  
+  means[[patch]] <- rowMeans(spectral_data[, patch_cols])  # Mean reflectance
+  lines(wavelengths, means[[patch]], col=colors[which(patches == patch)], lwd=3)  
+}
+
+# Legend for first plot
+legend("topleft", patches, col=colors, lwd=2)
+
+# Finding representative spectrum (smallest α) for each patch
+rep_spec <- data.frame(wavelength = wavelengths)
+for(patch in patches) {
+  patch_cols <- grep(patch, names(spectral_data))
+  mean_spec <- means[[patch]]
+  angles <- sapply(patch_cols, function(i) calc_spectral_angle(spectral_data[,i], mean_spec))
+  
+  # Selecting measurement with smallest angle as representative
+  rep_spec[[patch]] <- spectral_data[, patch_cols[which.min(angles)]]
+  
+  # Printing smallest angle found
+  cat(sprintf("%s patch - smallest angle: %f\n", patch, min(angles)))
+}
+
+# Creating second plot - representative spectra
+plot(rep_spec$wavelength, rep_spec$black,   
+     type="l", 
+     ylim=c(0,1),
+     xlab="Wavelength (nm)", 
+     ylab="Reflectance (%)",
+     main="Representative Spectra (Smallest α)",
+     col="black")
+
+# Adding lines for other patches
+lines(rep_spec$wavelength, rep_spec$blue, col="blue")
+lines(rep_spec$wavelength, rep_spec$orange, col="orange")
+lines(rep_spec$wavelength, rep_spec$white, col="gray")
+
+# Legend for second plot
+legend("topleft", patches, col=colors, lwd=1)
+```
+
+
